@@ -1842,8 +1842,8 @@ terraform apply -auto-approve -no-color
 - After running the job above, replace the script with the one below in order to test SSH connection with one of the instances.(Click `Configure`)
 
 ```bash
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
-ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${WORKSPACE}/${ANS_KEYPAIR} ubuntu@172.31.91.243 hostname
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${WORKSPACE}/${ANS_KEYPAIR} ubuntu@172.31.24.149 hostname
 ```
   * Click `Save`
 
