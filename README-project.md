@@ -1828,7 +1828,7 @@ chmod 400 ${ANS_KEYPAIR}
 
 ```bash
 PATH="$PATH:/usr/local/bin"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 AWS_REGION="us-east-1"
 cd infrastructure/dev-k8s-terraform
 sed -i "s/clarus/$ANS_KEYPAIR/g" main.tf
