@@ -62,21 +62,20 @@ This project aims to create full CI/CD Pipeline for microservice based applicati
 ## MSP 1 - Prepare Development Server Manually on EC2 Instance
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-* Prepare development server manually on Amazon Linux 2 (t3a.medium) for developers, enabled with `Docker`,  `Docker-Compose`,  `Java 11`,  `Git`.
+* Prepare development server manually on Amazon Linux 2023 (t3a.medium) for developers, enabled with `Docker`,  `Docker-Compose`,  `Java 11`,  `Git`.
 
 ``` bash
 #! /bin/bash
-sudo yum update -y
+sudo dnf update -y
 sudo hostnamectl set-hostname petclinic-dev-server
-sudo amazon-linux-extras install docker -y
+sudo dnf install docker -y
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -a -G docker ec2-user
-sudo curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" \
--o /usr/local/bin/docker-compose
+sudo curl -SL https://github.com/docker/compose/releases/download/v2.17.3/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
-sudo yum install git -y
-sudo yum install java-11-amazon-corretto -y
+sudo dnf install git -y
+sudo dnf install java-11-amazon-corretto -y
 newgrp docker
 ```
 
@@ -93,7 +92,7 @@ git clone https://github.com/clarusway/petclinic-microservices-with-db.git
 * Change your working directory to **petclinic-microservices** and delete the **.git** directory.
 
 ```bash
-cd petclinic-microservices
+cd petclinic-microservices-with-db
 rm -rf .git
 ```
 
@@ -104,12 +103,14 @@ rm -rf .git
 ```bash
 git init
 git add .
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
 git commit -m "first commit"
 git branch -M main
-git remote add origin https://[your-token]@github.com/[your-git-account]/[your-repo-name-petclinic-microservices-with-db.git]
+git remote add origin https://[github username]:[your-token]@github.com/[your-git-account]/[your-repo-name-petclinic-microservices-with-db.git]
 git push origin main
 ```
-* Prepare base branches namely `main`,  `dev`,  `release` for DevOps cycle.
+* Prepare base branches namely `dev` and `release` for DevOps cycle.
 
   + Create `dev` base branch.
 
@@ -520,8 +521,6 @@ services:
     image: openzipkin/zipkin
     container_name: tracing-server
     mem_limit: 512M
-    environment:
-    - JAVA_OPTS=-XX:+UnlockExperimentalVMOptions -Djava.security.egd=file:/dev/./urandom
     ports:
      - 9411:9411 
   
@@ -596,54 +595,44 @@ git checkout feature/msp-9
 ``` bash
 #! /bin/bash
 # update os
-yum update -y
+dnf update -y
 # set server hostname as jenkins-server
 hostnamectl set-hostname jenkins-server
 # install git
-yum install git -y
+dnf install git -y
 # install java 11
-yum install java-11-amazon-corretto -y
+dnf install java-11-amazon-corretto -y
 # install jenkins
-wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
-rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
-yum install jenkins -y
-systemctl start jenkins
+wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+dnf upgrade
+dnf install jenkins -y
 systemctl enable jenkins
+systemctl start jenkins
 # install docker
-amazon-linux-extras install docker -y
+dnf install docker -y
 systemctl start docker
 systemctl enable docker
 usermod -a -G docker ec2-user
 usermod -a -G docker jenkins
 # configure docker as cloud agent for jenkins
 cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service.bak
-sed -i 's/^ExecStart=.*/ExecStart=\/usr\/bin\/dockerd -H tcp:\/\/127.0.0.1:2375 -H unix:\/\/\/var\/run\/docker.sock/g' /lib/systemd/system/docker.service
+sed -i 's/^ExecStart=.*/ExecStart=\/usr\/bin\/dockerd -H tcp:\/\/127.0.0.1:2376 -H unix:\/\/\/var\/run\/docker.sock/g' /lib/systemd/system/docker.service
 systemctl daemon-reload
-systemctl restart docker
 systemctl restart jenkins
 # install docker compose
-curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" \
--o /usr/local/bin/docker-compose
+curl -SL https://github.com/docker/compose/releases/download/v2.17.3/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
-# uninstall aws cli version 1
-rm -rf /bin/aws
-# install aws cli version 2
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-./aws/install
 # install python 3
-yum install python3 -y
+dnf install -y python3-pip python3-devel
 # install ansible
 pip3 install ansible
 # install boto3
-pip3 install boto3
+pip3 install boto3 botocore
 # install terraform
-yum install -y yum-utils
-yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-yum -y install terraform
+wget https://releases.hashicorp.com/terraform/1.4.6/terraform_1.4.6_linux_amd64.zip
+unzip terraform_1.4.6_linux_amd64.zip -d /usr/local/bin
 ```
-
-* Grant permissions to Jenkins Server within Cloudformation template to create Cloudformation Stack and create ECR Registry, push or pull Docker images to ECR Repo.
 
 * Commit the change, then push the terraform files file to the remote repo.
 
@@ -660,6 +649,14 @@ git push origin dev
 ## MSP 10 - Configure Jenkins Server for Project
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+* Launch the jenkins server using `msp-9-jenkins-server-tf-template` folder.
+
+* After launch we will go on jenkins server. So, clone the project repo to the jenkins server.
+
+```bash
+git clone https://[github username]:[your-token]@github.com/[your-git-account]/[your-repo-name-petclinic-microservices-with-db.git
+```
+
 * Get the initial administrative password.
 
 ``` bash
@@ -674,7 +671,7 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 
 * Open your Jenkins dashboard and navigate to `Manage Jenkins` >> `Manage Plugins` >> `Available` tab
 
-* Search and select `GitHub Integration`,  `Docker Plugin`,  `Docker Pipeline`, and `Jacoco` plugins, then click `Install without restart`. Note: No need to install the other `Git plugin` which is already installed can be seen under `Installed` tab.
+* Search and select `GitHub Integration`,  `Docker`,  `Docker Pipeline`, and `Jacoco` plugins, then click `Install without restart`. Note: No need to install the other `Git plugin` which is already installed can be seen under `Installed` tab.
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ## MSP 11 - Setup Unit Tests and Configure Code Coverage Report
@@ -752,7 +749,7 @@ git push --set-upstream origin feature/msp-11
 <plugin>
     <groupId>org.jacoco</groupId>
     <artifactId>jacoco-maven-plugin</artifactId>
-    <version>0.8.2</version>
+    <version>0.8.10</version>
     <executions>
         <execution>
             <goals>
@@ -798,7 +795,7 @@ python3 -m http.server # for python 3+
 ## MSP 12 - Prepare Continuous Integration (CI) Pipeline
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-* Create `feature/msp-13` branch from `dev`.
+* Create `feature/msp-12` branch from `dev`.
 
 ``` bash
 git checkout dev
@@ -867,11 +864,12 @@ git checkout dev
 git merge feature/msp-12
 git push origin dev
 ```
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ## MSP 13 - Prepare and Implement Selenium Tests
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-* Create `feature/msp-10` branch from `dev`.
+* Create `feature/msp-13` branch from `dev`.
 
 ``` bash
 git checkout dev
@@ -911,10 +909,10 @@ url = "http://"+APP_IP.strip()+":8080/"
 print(url)
 driver.get(url)
 sleep(3)
-owners_link = driver.find_element_by_link_text("OWNERS")
+owners_link = driver.find_element("link text", "OWNERS")
 owners_link.click()
 sleep(2)
-all_link = driver.find_element_by_link_text("ALL")
+all_link = driver.find_element("link text","ALL")
 all_link.click()
 sleep(2)
 
@@ -949,10 +947,10 @@ APP_IP = os.environ['MASTER_PUBLIC_IP']
 url = "http://"+APP_IP.strip()+":8080/"
 print(url)
 driver.get(url)
-owners_link = driver.find_element_by_link_text("OWNERS")
+owners_link = driver.find_element("link text", "OWNERS")
 owners_link.click()
 sleep(2)
-all_link = driver.find_element_by_link_text("REGISTER")
+all_link = driver.find_element("link text", "REGISTER")
 all_link.click()
 sleep(2)
 # Register new Owner to Petclinic App
@@ -1011,7 +1009,7 @@ url = "http://"+APP_IP.strip()+":8080/"
 print(url)
 driver.get(url)
 sleep(3)
-vet_link = driver.find_element_by_link_text("VETERINARIANS")
+vet_link = driver.find_element("link text", "VETERINARIANS")
 vet_link.click()
 
 # Verify that table loaded
@@ -1056,12 +1054,12 @@ git checkout feature/msp-14
       Command:
 ```
 ```bash
-PATH="$PATH:/usr/bin"
+PATH="$PATH:/usr/local/bin"
 APP_REPO_NAME="clarusway-repo/petclinic-app-dev"
 AWS_REGION="us-east-1"
 
 aws ecr describe-repositories --region ${AWS_REGION} --repository-name ${APP_REPO_NAME} || \
-aws ecr create-rep  ository \
+aws ecr create-repository \
 --repository-name ${APP_REPO_NAME} \
 --image-scanning-configuration scanOnPush=false \
 --image-tag-mutability MUTABLE \
@@ -1106,437 +1104,13 @@ git branch feature/msp-15
 git checkout feature/msp-15
 ```
 
-- Create a folder for roles of master and worker nodes with the name of `IAM` under the `infrastructure/dev-k8s-terraform/modules` folder.
-
-```bash
-mkdir -p infrastructure/dev-k8s-terraform/modules/IAM
-```
-
-- Create iam policy file for the master node with the name of `policy_for_master.json`  under the `infrastructure/dev-k8s-terraform/modules/IAM`.
-
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Action": [
-        "autoscaling:DescribeAutoScalingGroups",
-        "autoscaling:DescribeLaunchConfigurations",
-        "autoscaling:DescribeTags",
-        "ec2:DescribeInstances",
-        "ec2:DescribeRegions",
-        "ec2:DescribeRouteTables",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeVolumes",
-        "ec2:CreateSecurityGroup",
-        "ec2:CreateTags",
-        "ec2:CreateVolume",
-        "ec2:ModifyInstanceAttribute",
-        "ec2:ModifyVolume",
-        "ec2:AttachVolume",
-        "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:CreateRoute",
-        "ec2:DeleteRoute",
-        "ec2:DeleteSecurityGroup",
-        "ec2:DeleteVolume",
-        "ec2:DetachVolume",
-        "ec2:RevokeSecurityGroupIngress",
-        "ec2:DescribeVpcs",
-        "elasticloadbalancing:AddTags",
-        "elasticloadbalancing:AttachLoadBalancerToSubnets",
-        "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
-        "elasticloadbalancing:CreateLoadBalancer",
-        "elasticloadbalancing:CreateLoadBalancerPolicy",
-        "elasticloadbalancing:CreateLoadBalancerListeners",
-        "elasticloadbalancing:ConfigureHealthCheck",
-        "elasticloadbalancing:DeleteLoadBalancer",
-        "elasticloadbalancing:DeleteLoadBalancerListeners",
-        "elasticloadbalancing:DescribeLoadBalancers",
-        "elasticloadbalancing:DescribeLoadBalancerAttributes",
-        "elasticloadbalancing:DetachLoadBalancerFromSubnets",
-        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
-        "elasticloadbalancing:ModifyLoadBalancerAttributes",
-        "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
-        "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
-        "elasticloadbalancing:AddTags",
-        "elasticloadbalancing:CreateListener",
-        "elasticloadbalancing:CreateTargetGroup",
-        "elasticloadbalancing:DeleteListener",
-        "elasticloadbalancing:DeleteTargetGroup",
-        "elasticloadbalancing:DescribeListeners",
-        "elasticloadbalancing:DescribeLoadBalancerPolicies",
-        "elasticloadbalancing:DescribeTargetGroups",
-        "elasticloadbalancing:DescribeTargetHealth",
-        "elasticloadbalancing:ModifyListener",
-        "elasticloadbalancing:ModifyTargetGroup",
-        "elasticloadbalancing:RegisterTargets",
-        "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
-        "iam:CreateServiceLinkedRole",
-        "kms:DescribeKey",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:DescribeRepositories",
-        "ecr:GetRepositoryPolicy",
-        "ecr:ListImages",
-        "ecr:DeleteRepository",
-        "ecr:BatchDeleteImage",
-        "ecr:SetRepositoryPolicy",
-        "ecr:DeleteRepositoryPolicy",
-        "s3:ListAccessPointsForObjectLambda",
-        "s3:GetObjectVersionTagging",
-        "s3:GetStorageLensConfigurationTagging",
-        "s3:GetObjectAcl",
-        "s3:GetBucketObjectLockConfiguration",
-        "s3:GetIntelligentTieringConfiguration",
-        "s3:GetObjectVersionAcl",
-        "s3:GetBucketPolicyStatus",
-        "s3:GetObjectRetention",
-        "s3:GetBucketWebsite",
-        "s3:GetJobTagging",
-        "s3:ListJobs",
-        "s3:GetMultiRegionAccessPoint",
-        "s3:GetObjectAttributes",
-        "s3:GetObjectLegalHold",
-        "s3:GetBucketNotification",
-        "s3:DescribeMultiRegionAccessPointOperation",
-        "s3:GetReplicationConfiguration",
-        "s3:ListMultipartUploadParts",
-        "s3:GetObject",
-        "s3:DescribeJob",
-        "s3:GetAnalyticsConfiguration",
-        "s3:GetObjectVersionForReplication",
-        "s3:GetAccessPointForObjectLambda",
-        "s3:GetStorageLensDashboard",
-        "s3:GetLifecycleConfiguration",
-        "s3:GetAccessPoint",
-        "s3:GetInventoryConfiguration",
-        "s3:GetBucketTagging",
-        "s3:GetAccessPointPolicyForObjectLambda",
-        "s3:GetBucketLogging",
-        "s3:ListBucketVersions",
-        "s3:ListBucket",
-        "s3:GetAccelerateConfiguration",
-        "s3:GetObjectVersionAttributes",
-        "s3:GetBucketPolicy",
-        "s3:GetEncryptionConfiguration",
-        "s3:GetObjectVersionTorrent",
-        "s3:GetBucketRequestPayment",
-        "s3:GetAccessPointPolicyStatus",
-        "s3:GetObjectTagging",
-        "s3:GetMetricsConfiguration",
-        "s3:GetBucketOwnershipControls",
-        "s3:GetBucketPublicAccessBlock",
-        "s3:GetMultiRegionAccessPointPolicyStatus",
-        "s3:ListBucketMultipartUploads",
-        "s3:GetMultiRegionAccessPointPolicy",
-        "s3:GetAccessPointPolicyStatusForObjectLambda",
-        "s3:ListAccessPoints",
-        "s3:GetBucketVersioning",
-        "s3:ListMultiRegionAccessPoints",
-        "s3:GetBucketAcl",
-        "s3:GetAccessPointConfigurationForObjectLambda",
-        "s3:ListStorageLensConfigurations",
-        "s3:GetObjectTorrent",
-        "s3:GetStorageLensConfiguration",
-        "s3:GetAccountPublicAccessBlock",
-        "s3:ListAllMyBuckets",
-        "s3:GetBucketCORS",
-        "s3:GetBucketLocation",
-        "s3:GetAccessPointPolicy",
-        "s3:GetObjectVersion"
-        ],
-        "Resource": [
-          "*"
-        ]
-      }
-    ]
-}
-```
-
-- Create iam policy file for the worker node with the name of `policy_for_worker.json`  under the `infrastructure/dev-k8s-terraform/modules/IAM`.
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:CreateSnapshot",
-        "ec2:AttachVolume",
-        "ec2:DetachVolume",
-        "ec2:ModifyVolume",
-        "ec2:DescribeAvailabilityZones",
-        "ec2:DescribeInstances",
-        "ec2:DescribeSnapshots",
-        "ec2:DescribeTags",
-        "ec2:DescribeVolumes",
-        "ec2:DescribeVolumesModifications",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:DescribeRepositories",
-        "ecr:GetRepositoryPolicy",
-        "ecr:ListImages",
-        "ecr:DeleteRepository",
-        "ecr:BatchDeleteImage",
-        "ecr:SetRepositoryPolicy",
-        "ecr:DeleteRepositoryPolicy"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:CreateTags"
-      ],
-      "Resource": [
-        "arn:aws:ec2:*:*:volume/*",
-        "arn:aws:ec2:*:*:snapshot/*"
-      ],
-      "Condition": {
-        "StringEquals": {
-          "ec2:CreateAction": [
-            "CreateVolume",
-            "CreateSnapshot"
-          ]
-        }
-      }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DeleteTags"
-      ],
-      "Resource": [
-        "arn:aws:ec2:*:*:volume/*",
-        "arn:aws:ec2:*:*:snapshot/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:CreateVolume"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "aws:RequestTag/ebs.csi.aws.com/cluster": "true"
-        }
-      }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:CreateVolume"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "aws:RequestTag/CSIVolumeName": "*"
-        }
-      }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DeleteVolume"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "ec2:ResourceTag/CSIVolumeName": "*"
-        }
-      }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DeleteVolume"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "ec2:ResourceTag/ebs.csi.aws.com/cluster": "true"
-        }
-      }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DeleteSnapshot"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "ec2:ResourceTag/CSIVolumeSnapshotName": "*"
-        }
-      }
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DeleteSnapshot"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "ec2:ResourceTag/ebs.csi.aws.com/cluster": "true"
-        }
-      }
-    }
-  ]
-}
-```
-
-- Create a terraform file for roles with the name of `variables.tf`  under the `infrastructure/dev-k8s-terraform/modules/IAM`.
-
-```go
-variable "master-role-policy" {
-  default = "petclinic_policy_for_master_role"
-}
-
-variable "worker-role-policy" {
-  default = "petclinic_policy_for_worker_role"
-}
-
-variable "master-role" {
-  default = "petclinic_role_master_k8s"
-}
-
-variable "worker-role" {
-  default = "petclinic_role_worker_k8s"
-}
-
-variable "master-role-attachment" {
-  default = "petclinic_attachment_for_master"
-}
-
-variable "worker-role-attachment" {
-  default = "petclinic_attachment_for_worker"
-}
-
-variable "profile_for_master" {
-  default = "petclinic_profile_for_master"
-}
-
-variable "profile_for_worker" {
-  default = "petclinic_profile_for_worker"
-}
-```
-
-- Create a terraform file for roles with the name of `roles.tf`  under the `infrastructure/dev-k8s-terraform/modules/IAM`.
-
-```go
-resource "aws_iam_policy" "policy_for_master_role" {
-  name        = var.master-role-policy
-  policy      = file("./modules/IAM/policy_for_master.json")
-}
-
-resource "aws_iam_policy" "policy_for_worker_role" {
-  name        = var.worker-role-policy
-  policy      = file("./modules/IAM/policy_for_worker.json")
-}
-
-resource "aws_iam_role" "role_for_master" {
-  name = var.master-role
-
-  # Terraform "jsonencode" function converts a
-  # Terraform expression result to valid JSON syntax.
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Sid    = ""
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      },
-    ]
-  })
-
-  tags = {
-    Name = "role_for_master"
-  }
-}
-
-resource "aws_iam_role" "role_for_worker" {
-  name = var.worker-role
-
-  # Terraform "jsonencode" function converts a
-  # Terraform expression result to valid JSON syntax.
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Sid    = ""
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      },
-    ]
-  })
-
-  tags = {
-    Name = "role_for_worker"
-  }
-}
-
-resource "aws_iam_policy_attachment" "attach_for_master" {
-  name       = var.master-role-attachment
-  roles      = [aws_iam_role.role_for_master.name]
-  policy_arn = aws_iam_policy.policy_for_master_role.arn
-}
-
-resource "aws_iam_policy_attachment" "attach_for_worker" {
-  name       = var.worker-role-attachment
-  roles      = [aws_iam_role.role_for_worker.name]
-  policy_arn = aws_iam_policy.policy_for_worker_role.arn
-}
-
-resource "aws_iam_instance_profile" "profile_for_master" {
-  name  = var.profile_for_master
-  role = aws_iam_role.role_for_master.name
-}
-
-resource "aws_iam_instance_profile" "profile_for_worker" {
-  name  = var.profile_for_worker
-  role = aws_iam_role.role_for_worker.name
-}
-
-output master_profile_name {
-  value       = aws_iam_instance_profile.profile_for_master.name
-}
-
-output worker_profile_name {
-  value       = aws_iam_instance_profile.profile_for_worker.name
-}
-```
+- Create a folder for kubernetes infrastructure with the name of `dev-k8s-terraform` under the `infrastructure` folder.
 
 - Prepare a terraform file for kubernetes Infrastructure consisting of 1 master, 2 Worker Nodes and save it as `main.tf` under the `infrastructure/dev-k8s-terraform`.
 
 ```go
 provider "aws" {
   region  = "us-east-1"
-}
-
-module "iam" {
-  source = "./modules/IAM"
 }
 
 variable "sec-gr-mutual" {
@@ -1558,18 +1132,35 @@ data "aws_vpc" "name" {
 resource "aws_security_group" "petclinic-mutual-sg" {
   name = var.sec-gr-mutual
   vpc_id = data.aws_vpc.name.id
+
+  ingress {
+    protocol = "tcp"
+    from_port = 10250
+    to_port = 10250
+    self = true
+  }
+
+    ingress {
+    protocol = "udp"
+    from_port = 8472
+    to_port = 8472
+    self = true
+  }
+
+    ingress {
+    protocol = "tcp"
+    from_port = 2379
+    to_port = 2380
+    self = true
+  }
+
 }
 
 resource "aws_security_group" "petclinic-kube-worker-sg" {
   name = var.sec-gr-k8s-worker
   vpc_id = data.aws_vpc.name.id
 
-  ingress {
-    protocol = "tcp"
-    from_port = 10250
-    to_port = 10250
-    security_groups = [aws_security_group.petclinic-mutual-sg.id]
-  }
+
   ingress {
     protocol = "tcp"
     from_port = 30000
@@ -1584,13 +1175,6 @@ resource "aws_security_group" "petclinic-kube-worker-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    protocol = "udp"
-    from_port = 8472
-    to_port = 8472
-    security_groups = [aws_security_group.petclinic-mutual-sg.id]
-  }
-  
   egress{
     protocol = "-1"
     from_port = 0
@@ -1599,7 +1183,6 @@ resource "aws_security_group" "petclinic-kube-worker-sg" {
   }
   tags = {
     Name = "kube-worker-secgroup"
-    "kubernetes.io/cluster/petclinicCluster" = "owned"
   }
 }
 
@@ -1613,88 +1196,83 @@ resource "aws_security_group" "petclinic-kube-master-sg" {
     to_port = 22
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    protocol = "tcp"
-    from_port = 80
-    to_port = 80
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+
   ingress {
     protocol = "tcp"
     from_port = 6443
     to_port = 6443
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    protocol = "tcp"
-    from_port = 443
-    to_port = 443
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    protocol = "tcp"
-    from_port = 2380
-    to_port = 2380
-    security_groups = [aws_security_group.petclinic-mutual-sg.id]
-  }
-  ingress {
-    protocol = "tcp"
-    from_port = 2379
-    to_port = 2379
-    security_groups = [aws_security_group.petclinic-mutual-sg.id]
-  }
-  ingress {
-    protocol = "tcp"
-    from_port = 10250
-    to_port = 10250
-    security_groups = [aws_security_group.petclinic-mutual-sg.id]
-  }
+
   ingress {
     protocol = "tcp"
     from_port = 10257
     to_port = 10257
     self = true
   }
+
   ingress {
     protocol = "tcp"
     from_port = 10259
     to_port = 10259
     self = true
   }
+
   ingress {
     protocol = "tcp"
     from_port = 30000
     to_port = 32767
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    protocol = "udp"
-    from_port = 8472
-    to_port = 8472
-    security_groups = [aws_security_group.petclinic-mutual-sg.id]
-  }
+
   egress {
     protocol = "-1"
     from_port = 0
     to_port = 0
     cidr_blocks = ["0.0.0.0/0"]
   }
+  
   tags = {
     Name = "kube-master-secgroup"
   }
 }
 
+resource "aws_iam_role" "petclinic-master-server-s3-role" {
+  name               = "petclinic-master-server-role"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+
+  managed_policy_arns = ["arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"]
+}
+
+resource "aws_iam_instance_profile" "petclinic-master-server-profile" {
+  name = "petclinic-master-server-profile"
+  role = aws_iam_role.petclinic-master-server-s3-role.name
+}
+
 resource "aws_instance" "kube-master" {
-    ami = "ami-013f17f36f8b1fefb"
+    ami = "ami-053b0d53c279acc90"
     instance_type = "t3a.medium"
-    iam_instance_profile = module.iam.master_profile_name
+    iam_instance_profile = aws_iam_instance_profile.petclinic-master-server-profile.name
     vpc_security_group_ids = [aws_security_group.petclinic-kube-master-sg.id, aws_security_group.petclinic-mutual-sg.id]
     key_name = "clarus"
     subnet_id = "subnet-c41ba589"  # select own subnet_id of us-east-1a
     availability_zone = "us-east-1a"
     tags = {
         Name = "kube-master"
-        "kubernetes.io/cluster/petclinicCluster" = "owned"
         Project = "tera-kube-ans"
         Role = "master"
         Id = "1"
@@ -1703,16 +1281,14 @@ resource "aws_instance" "kube-master" {
 }
 
 resource "aws_instance" "worker-1" {
-    ami = "ami-013f17f36f8b1fefb"
+    ami = "ami-053b0d53c279acc90"
     instance_type = "t3a.medium"
-        iam_instance_profile = module.iam.worker_profile_name
     vpc_security_group_ids = [aws_security_group.petclinic-kube-worker-sg.id, aws_security_group.petclinic-mutual-sg.id]
     key_name = "clarus"
     subnet_id = "subnet-c41ba589"  # select own subnet_id of us-east-1a
     availability_zone = "us-east-1a"
     tags = {
         Name = "worker-1"
-        "kubernetes.io/cluster/petclinicCluster" = "owned"
         Project = "tera-kube-ans"
         Role = "worker"
         Id = "1"
@@ -1721,16 +1297,14 @@ resource "aws_instance" "worker-1" {
 }
 
 resource "aws_instance" "worker-2" {
-    ami = "ami-013f17f36f8b1fefb"
+    ami = "ami-053b0d53c279acc90"
     instance_type = "t3a.medium"
-    iam_instance_profile = module.iam.worker_profile_name
     vpc_security_group_ids = [aws_security_group.petclinic-kube-worker-sg.id, aws_security_group.petclinic-mutual-sg.id]
     key_name = "clarus"
     subnet_id = "subnet-c41ba589"  # select own subnet_id of us-east-1a
     availability_zone = "us-east-1a"
     tags = {
         Name = "worker-2"
-        "kubernetes.io/cluster/petclinicCluster" = "owned"
         Project = "tera-kube-ans"
         Role = "worker"
         Id = "2"
@@ -1768,9 +1342,9 @@ git merge feature/msp-15
 git push origin dev
 ```
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ## MSP 16 - Create a QA Automation Environment with Kubernetes - Part-2
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # ##
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 - Create `feature/msp-16` branch from `dev`.
 
@@ -1828,7 +1402,7 @@ chmod 400 ${ANS_KEYPAIR}
 
 ```bash
 PATH="$PATH:/usr/local/bin"
-ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
+ANS_KEYPAIR="petclinic-ansible-test-dev.key"
 AWS_REGION="us-east-1"
 cd infrastructure/dev-k8s-terraform
 sed -i "s/clarus/$ANS_KEYPAIR/g" main.tf
@@ -1842,14 +1416,14 @@ terraform apply -auto-approve -no-color
 - After running the job above, replace the script with the one below in order to test SSH connection with one of the instances.(Click `Configure`)
 
 ```bash
-ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
-ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${WORKSPACE}/${ANS_KEYPAIR} ubuntu@172.31.24.149 hostname
+ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${WORKSPACE}/${ANS_KEYPAIR} ubuntu@172.31.91.243 hostname
 ```
   * Click `Save`
 
   * Click `Build Now`
 
-- Create a folder for ansible jobs under the petclinic-microservices-with-db folder.
+- Create a folder for ansible jobs under the `petclinic-microservices-with-db` folder.
 
 ```bash
 mkdir -p ansible/inventory
@@ -1940,38 +1514,6 @@ ansible -i ./ansible/inventory/dev_stack_dynamic_inventory_aws_ec2.yaml all -m p
 
   * Click `Build Now`
 
-- Create a `ClusterConfiguration file` and save it as `clusterconfig-base.yml` under `ansible/playbooks` folder.
-
-```yml
-apiVersion: kubeadm.k8s.io/v1beta3
-kind: ClusterConfiguration
-kubernetesVersion: v1.25.6
-controlPlaneEndpoint: ${CONTROLPLANE_ENDPOINT}
-networking:
-  podSubnet: 10.244.0.0/16
-apiServer:
-  extraArgs:
-    cloud-provider: external
-controllerManager:
-  extraArgs:
-    cloud-provider: external
----
-apiVersion: kubeadm.k8s.io/v1beta3
-kind: InitConfiguration
-nodeRegistration:
-  kubeletExtraArgs:
-    cloud-provider: external
----
-kind: KubeletConfiguration
-apiVersion: kubelet.config.k8s.io/v1beta1
-cgroupDriver: systemd
-```
-
-- The fields in the `clusterconfig-base.yml` file:
-    - ```controlPlaneEndpoint:``` Private IP address of the master node. (It will be paste programmatically.)
-    - ```podSubnet:``` Pod CIDR is necessary for Flannel CNI Plug-in.
-    - ```cloud-provider:``` With the value ```external``` Kubernetes cluster will be aware of the cloud controller manager. So that the cloud controller manager can implement specific tasks related to nodes, services etc.
-
 - Create an ansible playbook to install kubernetes and save it as `k8s_setup.yaml` under `ansible/playbooks` folder.
 
 ```yaml
@@ -1992,6 +1534,7 @@ cgroupDriver: systemd
       cat << EOF | sudo tee /etc/sysctl.d/k8s.conf
       net.bridge.bridge-nf-call-ip6tables = 1
       net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward                 = 1
       EOF
       sysctl --system
 
@@ -2011,10 +1554,11 @@ cgroupDriver: systemd
 
   - name: update apt-get and install kube packages
     shell: |
-      curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - && \
-      echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list && \
+      curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
+      echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list && \
       apt-get update -q && \
-      apt-get install -qy kubelet=1.23.5-00 kubectl=1.25.6-00 kubeadm=1.23.5-00 docker.io
+      apt-get install -qy kubelet=1.26.3-00 kubectl=1.26.3-00 kubeadm=1.26.3-00 kubernetes-cni docker.io
+      apt-mark hold kubelet kubeadm kubectl
 
   - name: Add ubuntu to docker group
     user:
@@ -2032,10 +1576,15 @@ cgroupDriver: systemd
 
   - name: change the Docker cgroup
     shell: |
-      echo '{"exec-opts": ["native.cgroupdriver=systemd"]}' | sudo tee /etc/docker/daemon.json
-      sudo systemctl daemon-reload
-      sudo systemctl restart docker
-      sudo systemctl restart kubelet
+      mkdir /etc/containerd
+      containerd config default | sudo tee /etc/containerd/config.toml >/dev/null 2>&1
+      sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml
+
+  - name: Restart containerd and enable
+    service:
+      name: containerd
+      state: restarted
+      enabled: yes
 
 
 - hosts: role_master
@@ -2045,27 +1594,10 @@ cgroupDriver: systemd
     become: yes
     shell: kubeadm config images pull
 
-  - name: copy the configuration
-    become: yes
-    copy: 
-      src: ./clusterconfig-base.yml
-      dest: /home/ubuntu/
-  
-  - name: get gettext-base
-    become: true
-    apt:
-      package: gettext-base
-      state: present
-
-  - name: change controlplane_endpoint and produce the clusterconfig.yml file
-    shell: |
-      export CONTROLPLANE_ENDPOINT={{ hostvars[inventory_hostname]['private_ip_address'] }}
-      envsubst < /home/ubuntu/clusterconfig-base.yml > /home/ubuntu/clusterconfig.yml
-
   - name: initialize the Kubernetes cluster using kubeadm
     become: true
     shell: |
-      kubeadm init --config /home/ubuntu/clusterconfig.yml
+      kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=All
     
   - name: Setup kubeconfig for ubuntu user
     become: true
@@ -2076,6 +1608,7 @@ cgroupDriver: systemd
      - chown ubuntu:ubuntu /home/ubuntu/.kube/config
 
   - name: Install flannel pod network
+    remote_user: ubuntu
     shell: kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml
 
   - name: Generate join command
@@ -2090,6 +1623,13 @@ cgroupDriver: systemd
       name: "kube_master"
       worker_join: "{{ join_command_for_workers.stdout.strip() }}"
 
+  - name: install Helm 
+    shell: |
+      cd /home/ubuntu
+      curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+      chmod 777 get_helm.sh
+      ./get_helm.sh
+
 - hosts: role_worker
   become: true
   tasks:
@@ -2098,30 +1638,7 @@ cgroupDriver: systemd
     shell: "{{ hostvars['kube_master']['worker_join'] }}"
     register: result_of_joining
 
-- hosts: role_master
-  become: false
-  tasks:
-
-  - name: Patch the instances
-    become: false
-    shell: |
-      cd /home/ubuntu
-      kubectl patch node {{ hostvars[groups['role_master'][0]]['private_dns_name'] }} -p '{"spec":{"providerID":"aws:///us-east-1a/{{ hostvars[groups['role_master'][0]]['instance_id'] }}" }}'
-      kubectl patch node {{ hostvars[groups['role_worker'][0]]['private_dns_name'] }} -p '{"spec":{"providerID":"aws:///us-east-1a/{{ hostvars[groups['role_worker'][0]]['instance_id'] }}" }}'
-      kubectl patch node {{ hostvars[groups['role_worker'][1]]['private_dns_name'] }} -p '{"spec":{"providerID":"aws:///us-east-1a/{{ hostvars[groups['role_worker'][1]]['instance_id'] }}" }}'
-
-  - name: Deploy the required cloud-controller-manager 
-    shell: |
-      cd /home/ubuntu
-      curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-      chmod 777 get_helm.sh
-      ./get_helm.sh
-      helm repo add aws-cloud-controller-manager https://kubernetes.github.io/cloud-provider-aws
-      helm repo update
-      helm upgrade --install aws-cloud-controller-manager aws-cloud-controller-manager/aws-cloud-controller-manager --set image.tag=v1.20.0-alpha.0
-      
-  - name: Deploy Nginx Ingress 
-    shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.5.1/deploy/static/provider/cloud/deploy.yaml
+  - debug: msg='{{ result_of_joining.stdout }}'
 ```
 
 - Commit the change, then push the ansible playbooks to the remote repo.
@@ -2277,8 +1794,6 @@ services:
       kompose.service.nodeport.port: "30001"
   tracing-server:
     image: openzipkin/zipkin
-    environment:
-    - JAVA_OPTS=-XX:+UnlockExperimentalVMOptions -Djava.security.egd=file:/dev/./urandom
     ports:
      - 9411:9411
   admin-server:
@@ -2318,7 +1833,7 @@ services:
 * Install [conversion tool](https://kompose.io/installation/) named `Kompose` on your Jenkins Server. [User Guide](https://kompose.io/user-guide/#user-guide)
 
 ```bash
-curl -L https://github.com/kubernetes/kompose/releases/download/v1.26.1/kompose-linux-amd64 -o kompose
+curl -L https://github.com/kubernetes/kompose/releases/download/v1.28.0/kompose-linux-amd64 -o kompose
 chmod +x kompose
 sudo mv ./kompose /usr/local/bin/kompose
 kompose version
@@ -2415,6 +1930,7 @@ sudo su -s /bin/bash jenkins
 export PATH=$PATH:/usr/local/bin
 helm version
 helm plugin install https://github.com/hypnoglow/helm-s3.git
+exit
 ``` 
 
 * ``Initialize`` the Amazon S3 Helm repository.
@@ -2698,7 +2214,7 @@ driver.close()
 - hosts: all
   tasks:
   - name: run dummy selenium job
-    shell: "docker run --rm -v {{ workspace }}:{{ workspace }} -w {{ workspace }} callahanclarus/selenium-py-chrome:latest python {{ item }}"
+    shell: "docker run --rm -v {{ workspace }}:{{ workspace }} -w {{ workspace }} clarusway/selenium-py-chrome:latest python {{ item }}"
     with_fileglob: "{{ workspace }}/selenium-jobs/dummy*.py"
     register: output
   
@@ -2754,7 +2270,7 @@ ansible-playbook --connection=local --inventory 127.0.0.1, --extra-vars "workspa
 - hosts: all
   tasks:
   - name: run all selenium jobs
-    shell: "docker run --rm --env MASTER_PUBLIC_IP={{ master_public_ip }} -v {{ workspace }}:{{ workspace }} -w {{ workspace }} callahanclarus/selenium-py-chrome:latest python {{ item }}"
+    shell: "docker run --rm --env MASTER_PUBLIC_IP={{ master_public_ip }} -v {{ workspace }}:{{ workspace }} -w {{ workspace }} clarusway/selenium-py-chrome:latest python {{ item }}"
     register: output
     with_fileglob: "{{ workspace }}/selenium-jobs/test*.py"
   
@@ -3030,7 +2546,7 @@ eksctl version
 - Download the Amazon EKS vended kubectl binary.
 
 ```bash
-curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.23.7/2022-06-29/bin/linux/amd64/kubectl
+curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.4/2023-05-11/bin/linux/amd64/kubectl
 ```
 
 - Apply execute permissions to the binary.
@@ -3086,7 +2602,7 @@ eksctl create cluster -f cluster.yaml
 
 ```bash
 export PATH=$PATH:$HOME/bin
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.5.1/deploy/static/provider/cloud/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.0/deploy/static/provider/cloud/deploy.yaml
 ```
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -3111,6 +2627,7 @@ git checkout feature/msp-20
       Command:
 ```
 ```bash
+PATH="$PATH:/usr/local/bin"
 APP_REPO_NAME="clarusway-repo/petclinic-app-qa"
 AWS_REGION="us-east-1"
 
@@ -3297,9 +2814,10 @@ git checkout feature/msp-22
 pipeline {
     agent any
     environment {
+        PATH=sh(script:"echo $PATH:/usr/local/bin:$HOME/bin", returnStdout:true).trim()
         APP_NAME="petclinic"
         APP_REPO_NAME="clarusway-repo/petclinic-app-qa"
-        AWS_ACCOUNT_ID=sh(script:'aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
+        AWS_ACCOUNT_ID=sh(script:'export PATH="$PATH:/usr/local/bin" && aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
         AWS_REGION="us-east-1"
         ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     }
@@ -3401,6 +2919,7 @@ git push origin release
 - Delete  EKS cluster via `eksctl`. It will take a while.
 
 ```bash
+sudo su - jenkins
 eksctl delete cluster -f cluster.yaml
 ```
 
@@ -3562,7 +3081,6 @@ sudo hostnamectl set-hostname rancher-instance-1
 # Update OS 
 sudo apt-get update -y
 sudo apt-get upgrade -y
-# Install and start Docker on Ubuntu 19.03
 # Update the apt package index and install packages to allow apt to use a repository over HTTPS
 sudo apt-get install \
   apt-transport-https \
@@ -3615,10 +3133,19 @@ Scheme              : internet-facing
 IP address type     : ipv4
 
 <!-- Listeners-->
-Protocol            : HTTPS/HTTP
-Port                : 443/80
+Protocol            : HTTP
+Port                : 80
 Availability Zones  : Select AZs of RKE instances
-Target group        : `call-rancher-http-80-tg` target group 
+Target group        : `petclinic-rancher-http-80-tg` target group
+
+<!-- Add Listener-->
+Protocol            : HTTPS
+Port                : 443
+Availability Zones  : Select AZs of RKE instances
+Target group        : `petclinic-rancher-http-80-tg` target group
+
+<!-- Secure listener settings -->
+From ACM            : *.clarusway.us   # change with your dns name
 ```
 
 * Configure ALB Listener of HTTP on `Port 80` to redirect traffic to HTTPS on `Port 443`.
@@ -3628,7 +3155,7 @@ Target group        : `call-rancher-http-80-tg` target group
 * Install RKE, the Rancher Kubernetes Engine, [Kubernetes distribution and command-line tool](https://rancher.com/docs/rke/latest/en/installation/)) on Jenkins Server.
 
 ```bash
-curl -SsL "https://github.com/rancher/rke/releases/download/v1.4.2/rke_linux-amd64" -o "rke_linux-amd64"
+curl -SsL "https://github.com/rancher/rke/releases/download/v1.4.5/rke_linux-amd64" -o "rke_linux-amd64"
 sudo mv rke_linux-amd64 /usr/local/bin/rke
 chmod +x /usr/local/bin/rke
 rke --version
@@ -3714,9 +3241,12 @@ kubectl create namespace cattle-system
 ```bash
 helm install rancher rancher-latest/rancher \
   --namespace cattle-system \
-  --set hostname=rancher.clarusway.us \    # Change DNS name
+  --set hostname=rancher.clarusway.us \
   --set tls=external \
-  --set replicas=1
+  --set replicas=1 \
+  --set global.cattle.psp.enabled=false
+  
+# Change DNS name
 ```
 
 * Check if the Rancher Server is deployed successfully.
@@ -3737,9 +3267,9 @@ kubectl --kubeconfig $KUBECONFIG -n cattle-system exec $(kubectl --kubeconfig $K
 ## MSP 25 - Create Staging and Production Environment with Rancher
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-* To provide access of Rancher to the cloud resources, create a `Cloud Credentials` for AWS on Rancher and name it as `Petclinic-AWS-Training-Account`.
+* To provide access of Rancher to the cloud resources, create a `Cloud Credentials` on `Cluster Management` segment for AWS on Rancher and name it as `Petclinic-AWS-Training-Account`. As region select `us-east-1`.
 
-* Create a `Node Template` on Rancher with following configuration for to be used while launching the EC2 instances and name it as `Petclinic-AWS-RancherOs-Template`.
+* Create a `Node Template` (Cluster Management --> RKE1 configuration) on Rancher with following configuration for to be used while launching the EC2 instances and name it as `Petclinic-AWS-RancherOs-Template`.
 
 ```yml
 Region            : us-east-1
@@ -3896,9 +3426,9 @@ nano /home/ec2-user/.m2/settings.xml
 git add .
 git commit -m 'added Nexus server terraform files'
 git push --set-upstream origin feature/msp-26
-git checkout release
+git checkout dev
 git merge feature/msp-26
-git push 
+git push origin dev
 ```
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -3913,7 +3443,7 @@ git branch feature/msp-27
 git checkout feature/msp-27
 ```
 
-* Create a Kubernetes cluster using Rancher with RKE and new nodes in AWS  and name it as `petclinic-cluster-staging`.
+* Create a Kubernetes cluster using Rancher (Cluster Management --> Clusters) with RKE and new nodes in AWS  and name it as `petclinic-cluster-staging`.
 
 ```yml
 Cluster Type      : Amazon EC2
@@ -3936,6 +3466,7 @@ Worker            : checked
       Command:
 ```
 ``` bash
+PATH="$PATH:/usr/local/bin"
 APP_REPO_NAME="clarusway-repo/petclinic-app-staging"
 AWS_REGION="us-east-1"
 
@@ -4006,9 +3537,9 @@ docker push "${IMAGE_TAG_PROMETHEUS_SERVICE}"
 * Install `Rancher CLI` on Jenkins Server.
 
 ```bash
-curl -SsL "https://github.com/rancher/cli/releases/download/v2.6.9/rancher-linux-amd64-v2.6.9.tar.gz" -o "rancher-cli.tar.gz"
+curl -SsL "https://github.com/rancher/cli/releases/download/v2.7.0/rancher-linux-amd64-v2.7.0.tar.gz" -o "rancher-cli.tar.gz"
 tar -zxvf rancher-cli.tar.gz
-sudo mv ./rancher-v2.6.9/rancher /usr/local/bin/rancher
+sudo mv ./rancher*/rancher /usr/local/bin/rancher
 chmod +x /usr/local/bin/rancher
 rancher --version
 ```
@@ -4030,9 +3561,10 @@ rancher --version
 pipeline {
     agent any
     environment {
+        PATH=sh(script:"echo $PATH:/usr/local/bin", returnStdout:true).trim()
         APP_NAME="petclinic"
         APP_REPO_NAME="clarusway-repo/petclinic-app-staging"
-        AWS_ACCOUNT_ID=sh(script:'aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
+        AWS_ACCOUNT_ID=sh(script:'export PATH="$PATH:/usr/local/bin" && aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
         AWS_REGION="us-east-1"
         ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         RANCHER_URL="https://rancher.clarusway.us"
@@ -4121,17 +3653,6 @@ pipeline {
 
 * Create an `A` record of `staging-petclinic.clarusway.us` in your hosted zone (in our case `clarusway.us`) using AWS Route 53 domain registrar and bind it to your `petclinic cluster`.
 
-* Commit the change, then push the script to the remote repo.
-
-``` bash
-git add .
-git commit -m 'added jenkinsfile petclinic-staging for release branch'
-git push --set-upstream origin feature/msp-27
-git checkout release
-git merge feature/msp-27
-git push
-```
-
 * Create a Staging ``Pipeline`` on Jenkins with name of `petclinic-staging` with following script and configure a `cron job` to trigger the pipeline every Sundays at midnight (`59 23 * * 0`) on `release` branch. `Petclinic staging pipeline` should be deployed on permanent staging-environment on `petclinic-cluster` Kubernetes cluster under `petclinic-staging-ns` namespace.
 
 ```yml
@@ -4149,7 +3670,16 @@ git push
 * Click `save`.
 * Click `Build Now`
 
+* Commit the change, then push the script to the remote repo.
 
+``` bash
+git add .
+git commit -m 'added jenkinsfile petclinic-staging for release branch'
+git push --set-upstream origin feature/msp-27
+git checkout release
+git merge feature/msp-27
+git push origin release
+```
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 ## MSP 28 - Prepare a Production Pipeline
@@ -4341,9 +3871,10 @@ spec:
 pipeline {
     agent any
     environment {
+        PATH=sh(script:"echo $PATH:/usr/local/bin", returnStdout:true).trim()
         APP_NAME="petclinic"
         APP_REPO_NAME="clarusway-repo/petclinic-app-prod"
-        AWS_ACCOUNT_ID=sh(script:'aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
+        AWS_ACCOUNT_ID=sh(script:'export PATH="$PATH:/usr/local/bin" && aws sts get-caller-identity --query Account --output text', returnStdout:true).trim()
         AWS_REGION="us-east-1"
         ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     }
@@ -4483,7 +4014,7 @@ git checkout feature/msp-29
   * Install the `Custom Resource Definition` resources separately
 
   ```bash
-  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert-manager.crds.yaml
+  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.12.0/cert-manager.crds.yaml
   ```
 
   * Install the cert-manager Helm chart
@@ -4492,7 +4023,7 @@ git checkout feature/msp-29
   helm install \
   cert-manager jetstack/cert-manager \
   --namespace cert-manager \
-  --version v1.11.0
+  --version v1.12.0
   ```
 
   * Verify that the cert-manager is deployed correctly.
