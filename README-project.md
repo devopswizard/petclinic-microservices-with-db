@@ -1389,7 +1389,7 @@ terraform --version
 
 ```bash
 PATH="$PATH:/usr/local/bin"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 AWS_REGION="us-east-1"
 aws ec2 create-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR} --query "KeyMaterial" --output text > ${ANS_KEYPAIR}
 chmod 400 ${ANS_KEYPAIR}
@@ -1402,7 +1402,7 @@ chmod 400 ${ANS_KEYPAIR}
 
 ```bash
 PATH="$PATH:/usr/local/bin"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 AWS_REGION="us-east-1"
 cd infrastructure/dev-k8s-terraform
 sed -i "s/clarus/$ANS_KEYPAIR/g" main.tf
@@ -1416,8 +1416,8 @@ terraform apply -auto-approve -no-color
 - After running the job above, replace the script with the one below in order to test SSH connection with one of the instances.(Click `Configure`)
 
 ```bash
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
-ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${WORKSPACE}/${ANS_KEYPAIR} ubuntu@172.31.91.243 hostname
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${WORKSPACE}/${ANS_KEYPAIR} ubuntu@172.31.25.247 hostname
 ```
   * Click `Save`
 
@@ -1449,7 +1449,7 @@ git push --set-upstream origin feature/msp-16
 
 ```bash
 PATH="$PATH:/usr/local/bin"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 export ANSIBLE_INVENTORY="${WORKSPACE}/ansible/inventory/hosts.ini"
 export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}"
 export ANSIBLE_HOST_KEY_CHECKING=False
@@ -1489,7 +1489,7 @@ git push
 
 ```bash
 APP_NAME="Petclinic"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 PATH="$PATH:/usr/local/bin"
 export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}"
 export ANSIBLE_HOST_KEY_CHECKING=False
@@ -1504,7 +1504,7 @@ ansible-inventory -v -i ./ansible/inventory/dev_stack_dynamic_inventory_aws_ec2.
 ```bash
 # Test dev dynamic inventory by pinging
 APP_NAME="Petclinic"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 PATH="$PATH:/usr/local/bin"
 export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}"
 export ANSIBLE_HOST_KEY_CHECKING=False
@@ -1653,7 +1653,7 @@ git push
 
 ```bash
 APP_NAME="Petclinic"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 PATH="$PATH:/usr/local/bin"
 export ANSIBLE_PRIVATE_KEY_FILE="${WORKSPACE}/${ANS_KEYPAIR}"
 export ANSIBLE_HOST_KEY_CHECKING=False
@@ -1678,7 +1678,7 @@ terraform destroy -auto-approve -no-color
 
 ```bash
 PATH="$PATH:/usr/local/bin"
-ANS_KEYPAIR="petclinic-ansible-test-dev.key"
+ANS_KEYPAIR="petclinic-ansible-josh-dev.key"
 AWS_REGION="us-east-1"
 aws ec2 delete-key-pair --region ${AWS_REGION} --key-name ${ANS_KEYPAIR}
 rm -rf ${ANS_KEYPAIR}
